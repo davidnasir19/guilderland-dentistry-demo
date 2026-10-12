@@ -1,0 +1,73 @@
+/* Guilderland Family Dentistry — redesign concept
+   Design tokens shared by the site and the style tile.
+   Palette "Upstate morning": warm paper, linen and sand, a lake blue taken
+   from the practice's own logo (#0E76BC, deepened for text contrast),
+   sage as a quiet secondary, maple and gold only as small autumn accents. */
+
+:root {
+  /* Surfaces */
+  --paper: #F7F3EC;        /* page background — warm off-white */
+  --linen: #EFE7DA;        /* alternate sections */
+  --sand: #E3D6C2;         /* cards on linen, dividers */
+  --lake-soft: #DCE7EF;    /* quiet blue wash */
+  --night: #172026;        /* film stage, footer */
+
+  /* Ink */
+  --ink: #1F2528;          /* body text — 14.0:1 on paper */
+  --ink-2: #4A4F52;        /* secondary text — 7.5:1 on paper */
+  --logo-grey: #58585A;    /* the logo's own grey — 6.4:1 on paper */
+
+  /* Brand accents */
+  --logo-blue: #0E76BC;    /* the logo's own blue — graphics only */
+  --lake: #245C85;         /* links, primary buttons — 6.5:1 on paper */
+  --lake-deep: #1B4A6D;    /* hover / pressed — 8.5:1 on paper */
+  --sage: #8FA38C;         /* decorative only */
+  --sage-deep: #465F4C;    /* secondary accent text — 6.3:1 on paper */
+  --maple: #A5532A;        /* tiny autumn accent — 4.9:1 on paper */
+  --gold: #B07A1F;         /* rating stars (non-text) — 3.4:1 on paper */
+
+  /* Type */
+  --font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-body: "Albert Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+
+  --step--1: clamp(0.84rem, 0.82rem + 0.1vw, 0.9rem);
+  --step-0: clamp(1.02rem, 0.98rem + 0.2vw, 1.13rem);   /* body: never under 16px */
+  --step-1: clamp(1.2rem, 1.12rem + 0.4vw, 1.45rem);
+  --step-2: clamp(1.5rem, 1.3rem + 0.9vw, 2.1rem);
+  --step-3: clamp(1.95rem, 1.6rem + 1.7vw, 3.1rem);
+  --step-4: clamp(2.5rem, 1.9rem + 3vw, 4.6rem);
+  --step-5: clamp(3rem, 2.1rem + 4.6vw, 6.4rem);
+
+  --leading-tight: 1.06;
+  --leading-snug: 1.25;
+  --leading-body: 1.62;
+  --tracking-label: 0.16em;
+
+  /* Space (8px rhythm) */
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2rem;
+  --space-5: 3rem;
+  --space-6: 4.5rem;
+  --space-7: 7rem;
+  --gutter: clamp(1rem, 0.6rem + 2.2vw, 2.75rem);
+  --measure: 38rem;
+  --wide: 76rem;
+
+  /* Shape & depth */
+  --radius-s: 6px;
+  --radius-m: 14px;
+  --radius-l: 26px;
+  --radius-pill: 999px;
+  --hairline: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  --shadow-soft: 0 1px 2px rgb(31 37 40 / 0.05), 0 12px 32px -12px rgb(31 37 40 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(31 37 40 / 0.06), 0 22px 48px -18px rgb(31 37 40 / 0.28);
+
+  /* Motion — slow, eased, never bouncy */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 180ms;
+  --dur: 420ms;
+  --dur-slow: 900ms;
+}

@@ -1,0 +1,211 @@
+{
+  "_readme": "Scroll timeline of the flythrough. Edit freely: each passage maps a scroll distance (vh = viewport heights) to a span of one clip (clip-local seconds). Frame indices are computed from clips[].offset in the master (written by production/tools/build_master.py), so clip durations never constrain the scroll. 'hold' passages freeze one frame. chapter = id of the HTML text block shown in that passage; textIn/textOut = fractions of the passage over which the text fades and rises in/out (omit to keep it fully shown). fx (optional, 0..1) = horizontal focus of the phone crop.",
+  "version": "2.0",
+  "frames": {
+    "fps": 20,
+    "count": 921,
+    "width": 1280,
+    "height": 720,
+    "pattern": "assets/frames/frame-{0000}.webp",
+    "poster": "assets/img/poster-start.webp",
+    "version": "202610110742"
+  },
+  "clips": {
+    "E2": {
+      "offset": -6.083333,
+      "duration": 8.0417,
+      "source": "clips/clip_E_earth_zoom_raw.mp4",
+      "trimStart": 6.083333333333333
+    },
+    "D": {
+      "offset": 1.833333,
+      "duration": 6.0417,
+      "source": "clips/clip_D_descent_raw.mp4",
+      "trimStart": 0.0
+    },
+    "A": {
+      "duration": 12.0417,
+      "offset": 7.75,
+      "trimStart": 0.0,
+      "source": "clips/clip_A_raw.mp4"
+    },
+    "AB": {
+      "offset": 19.666667,
+      "duration": 8.0417,
+      "trimStart": 0.0,
+      "source": "clips/clip_AB_bridge_raw.mp4"
+    },
+    "B": {
+      "duration": 12.0417,
+      "offset": 24.083334,
+      "trimStart": 3.5,
+      "source": "clips/clip_B_raw.mp4"
+    },
+    "C": {
+      "duration": 10.0417,
+      "offset": 36.000001,
+      "trimStart": 0.0,
+      "source": "clips/clip_C_raw.mp4"
+    }
+  },
+  "passages": [
+    {
+      "id": "aerial-hold",
+      "vh": 16,
+      "clip": "E2",
+      "from": 6.0833,
+      "to": 6.0833,
+      "mode": "hold",
+      "chapter": "hero"
+    },
+    {
+      "id": "approach",
+      "vh": 35,
+      "clip": "E2",
+      "from": 6.0833,
+      "to": 6.85,
+      "mode": "move",
+      "chapter": "hero",
+      "textOut": [
+        0.0,
+        0.45
+      ]
+    },
+    {
+      "id": "landing",
+      "vh": 52,
+      "clip": "E2",
+      "from": 6.85,
+      "to": 8.0,
+      "mode": "move",
+      "chapter": "place",
+      "textIn": [
+        0.3,
+        0.65
+      ]
+    },
+    {
+      "id": "descent",
+      "vh": 80,
+      "clip": "D",
+      "from": 0.0,
+      "to": 6.0,
+      "mode": "move",
+      "chapter": "place",
+      "textOut": [
+        0.3,
+        0.55
+      ]
+    },
+    {
+      "id": "arrive",
+      "vh": 48,
+      "clip": "A",
+      "from": 0.0,
+      "to": 4.5,
+      "mode": "move",
+      "chapter": null
+    },
+    {
+      "id": "welcome",
+      "vh": 116,
+      "clip": "A",
+      "from": 4.5,
+      "to": 12.0,
+      "mode": "move",
+      "chapter": "welcome",
+      "textIn": [
+        0.1,
+        0.22
+      ],
+      "textOut": [
+        0.86,
+        0.97
+      ]
+    },
+    {
+      "id": "walkthrough",
+      "vh": 85,
+      "clip": "AB",
+      "from": 0.0,
+      "to": 8.0,
+      "mode": "move",
+      "chapter": null
+    },
+    {
+      "id": "treatment",
+      "vh": 100,
+      "clip": "B",
+      "from": 3.5,
+      "to": 8.0,
+      "mode": "move",
+      "chapter": "services",
+      "textIn": [
+        0.1,
+        0.24
+      ],
+      "textOut": [
+        0.86,
+        0.97
+      ]
+    },
+    {
+      "id": "hygiene",
+      "vh": 86,
+      "clip": "B",
+      "from": 8.0,
+      "to": 12.0,
+      "mode": "move",
+      "chapter": "hygiene",
+      "textIn": [
+        0.08,
+        0.2
+      ],
+      "textOut": [
+        0.82,
+        0.95
+      ]
+    },
+    {
+      "id": "exit",
+      "vh": 36,
+      "clip": "C",
+      "from": 0.0,
+      "to": 3.2,
+      "mode": "move",
+      "chapter": null
+    },
+    {
+      "id": "turn",
+      "vh": 38,
+      "clip": "C",
+      "from": 3.2,
+      "to": 6.0,
+      "mode": "move",
+      "chapter": null
+    },
+    {
+      "id": "reveal",
+      "vh": 68,
+      "clip": "C",
+      "from": 6.0,
+      "to": 10.0,
+      "mode": "move",
+      "chapter": "visit",
+      "textIn": [
+        0.55,
+        0.85
+      ]
+    },
+    {
+      "id": "reveal-hold",
+      "vh": 30,
+      "clip": "C",
+      "from": 10.0,
+      "to": 10.0,
+      "mode": "hold",
+      "chapter": "visit"
+    }
+  ],
+  "_pacing": "Redesign 2026-10-11: reduced to 890vh with native scrolling, retained source frame order and seamless transitions. Desktop and existing mobile sequences reused."
+}

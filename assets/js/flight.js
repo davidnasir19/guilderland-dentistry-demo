@@ -1,15 +1,6 @@
-/* Guilderland Family Dentistry — scroll-driven flythrough.
- *
- * Native scroll only (no hijacking). The page scrolls through a tall #tour
- * section; a sticky stage draws one frame of the image sequence on a canvas.
- * Which frame is shown comes from content/flight.json: a list of passages,
- * each mapping a scroll distance (vh) to a span of one clip (clip seconds).
- *
- * The mode (motion vs still images) is decided early by the inline script in
- * <head>; chapter stills are lazy-loaded, so a motion-mode visitor does not
- * download them. Still mode = reduced motion, Save-Data / 2G, very low memory,
- * the visitor's "Still images" choice, a failed config load, or a 10 s timeout
- * (the head script falls back if this file never sets html.flight-ready).
+/* Native-scroll tour. A fully buffered, short-GOP film replaces hundreds of
+ * per-frame requests. Only one seek may be outstanding; subsequent input updates
+ * its target. The film stays paused, so native page scrolling remains in charge.
  */
 (function () {
   "use strict";
@@ -48,43 +39,98 @@
   var chapters = Array.prototype.slice.call(tour.querySelectorAll("[data-chapter]"));
   var railItems = Array.prototype.slice.call(tour.querySelectorAll("[data-rail]"));
   var header = document.querySelector(".site-header");
-  var ctx = canvas.getContext("2d", { alpha: false });
+  var video = document.createElement("video");
+  video.className = "tour-video";
+  video.muted = true; video.defaultMuted = true; video.playsInline = true;
+  video.preload = "auto";
+  video.setAttribute("muted", ""); video.setAttribute("playsinline", "");
+  video.setAttribute("aria-hidden", "true");
+  video.disablePictureInPicture = true;
+  canvas.insertAdjacentElement("afterend", video);
+  var copies = chapters.map(function (el) { return el.querySelector(".chapter-copy"); });
+  var textState = [], railChapter = null;
+  var sourceURL = null, controller = null, loadTimer = null;
+  var videoReady = false, seekBusy = false, desiredFrame = 0, seekFrame = 0;
+  var visualY = null, tickTime = 0, seekStart = 0;
+  var seeks = 0, maxSeekMs = 0, totalSeekMs = 0, downloadedBytes = 0;
   var CHAPTER_ORDER = ["hero", "place", "welcome", "services", "hygiene", "visit"];
 
   var cfg, manifest, passages = [], totalPx = 0, vh = 0, count = 0, fps = 20;
   var isMobile = null, set = null, frameW = 1280, frameH = 720;
-  var cache = new Map();          // index -> {img, ready, settled}
-  var queue = [];                 // indices still to request, in priority order
-  var wanted = new Set();         // current priority window (never evicted)
-  var inflight = 0, MAX_INFLIGHT = 6, CAP = 48, AHEAD = 28, BEHIND = 10;
-  var current = { frame: 0, passage: 0, local: 0 }, lastDrawn = -1, lastDir = 1, lastY = 0;
-  var rafPending = false, live = false, readyCount = 0, gen = 0, stopped = false;
+  var current = { frame: 0, passage: 0, local: 0 }, lastDrawn = -1;
+  var rafPending = false, live = false, gen = 0, stopped = false;
 
   function isRunning() { return !stopped && root.classList.contains("has-flight"); }
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function smooth(e0, e1, x) { var t = clamp((x - e0) / (e1 - e0 || 1), 0, 1); return t * t * (3 - 2 * t); }
-  function pad(n) { return ("0000" + n).slice(-4); }
-  function frameURL(i) { return set.dir + "frame-" + pad(i) + ".webp?v=" + (manifest.version || "1"); }
 
   // ---------- frame sets (phone crop vs full frame) ----------
   function chooseSet() {
-    // phones and portrait tablets get the square crop; landscape phones keep the full frame
     var mobile = window.innerWidth < 768 || window.innerHeight > window.innerWidth * 1.15;
     if (mobile === isMobile) return false;
     isMobile = mobile;
-    var next = (isMobile && manifest.sets.mobile) ? manifest.sets.mobile : manifest.sets.desktop;
-    if (set && next.dir === set.dir) return false;
-    set = next; frameW = set.width; frameH = set.height;
-    CAP = isMobile ? 30 : 48;
-    AHEAD = Math.round(CAP * 0.6); BEHIND = Math.round(CAP * 0.22);
-    // drop everything from the previous set
-    cache.forEach(function (e) { release(e); });
-    cache.clear(); queue = []; wanted = new Set(); inflight = 0; readyCount = 0; gen++;
-    lastDrawn = -1;
-    var p = (isMobile && manifest.sets.mobile && manifest.sets.mobile.poster) || manifest.poster;
-    if (p && poster.getAttribute("src") !== p) poster.src = p;
+    set = isMobile ? cfg.media.mobile : cfg.media.desktop;
+    frameW = set.width; frameH = set.height;
+    loadFilm(set.src);
     return true;
+  }
+
+  function progress(loaded, total) {
+    downloadedBytes = loaded;
+    if (!loaderEl) return;
+    var pct = total ? Math.min(99, Math.round(loaded / total * 100)) : 0;
+    loaderBar.style.setProperty("--p", pct + "%");
+    loaderEl.querySelector("span").textContent = total ? "Preparing your visit · " + pct + "%" : "Preparing your visit";
+  }
+
+  async function loadFilm(src) {
+    var g = ++gen;
+    if (controller) controller.abort();
+    clearTimeout(loadTimer);
+    controller = new AbortController();
+    var signal = controller.signal;
+    root.classList.add("flight-loading");
+    // A network failure leaves a usable still-image page, never a stuck loader.
+    loadTimer = setTimeout(function () { if (g === gen) fail("video-timeout"); }, 20000);
+    try {
+      var response = await fetch(src, { signal: signal, cache: "force-cache" });
+      if (!response.ok) throw new Error("Film unavailable");
+      var total = Number(response.headers.get("Content-Length")) || 0;
+      var blob;
+      if (response.body && response.body.getReader) {
+        var reader = response.body.getReader(), chunks = [], loaded = 0;
+        while (true) {
+          var part = await reader.read();
+          if (part.done) break;
+          chunks.push(part.value); loaded += part.value.byteLength;
+          progress(loaded, total);
+        }
+        blob = new Blob(chunks, { type: "video/mp4" });
+      } else { blob = await response.blob(); progress(blob.size, blob.size); }
+      if (g !== gen || !isRunning()) return;
+      var oldURL = sourceURL;
+      sourceURL = URL.createObjectURL(blob);
+      videoReady = false; seekBusy = false; lastDrawn = -1;
+      video.onloadeddata = function () {
+        if (g !== gen || !isRunning()) return;
+        clearTimeout(loadTimer);
+        videoReady = true; live = true;
+        root.classList.remove("flight-loading"); root.classList.add("flight-ready");
+        video.classList.add("is-live");
+        if (loaderEl) {
+          loaderEl.classList.add("is-done"); loaderEl.setAttribute("aria-hidden", "true");
+          loaderEl.querySelector("span").textContent = "Tour ready";
+        }
+        schedule();
+      };
+      video.onerror = function () { if (g === gen) fail("video-decode"); };
+      video.src = sourceURL;
+      video.load();
+      if (oldURL) URL.revokeObjectURL(oldURL);
+    } catch (error) {
+      if (g === gen && isRunning()) fail("video-network");
+    }
   }
 
   // ---------- layout ----------
@@ -96,15 +142,7 @@
     totalPx = 0;
     passages.forEach(function (p) { p.start = totalPx; p.len = Math.round(p.vh / 100 * vh); totalPx += p.len; });
     tour.style.setProperty("--tour-h", (totalPx + vh) + "px");
-    sizeCanvas();
     return true;
-  }
-
-  function sizeCanvas() {
-    var r = canvas.getBoundingClientRect();
-    var dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 2.5 : 2);
-    var w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; lastDrawn = -1; }
   }
 
   // ---------- timeline ----------
@@ -151,12 +189,15 @@
 
   function updateText(st) {
     var p = passages[st.passage];
-    chapters.forEach(function (el) {
+    chapters.forEach(function (el, index) {
       var id = el.getAttribute("data-chapter");
-      var copy = el.querySelector(".chapter-copy");
+      var copy = copies[index];
       var a = 0, leaving = false;
       if (p.chapter === id) { var r = chapterAlpha(p, st.local); a = r.a; leaving = r.leaving; }
       var y = (1 - a) * 16 * (leaving ? -1 : 1);
+      var state = a.toFixed(3) + ":" + y.toFixed(1);
+      if (textState[index] === state) return;
+      textState[index] = state;
       copy.style.opacity = a.toFixed(3);
       copy.style.transform = "translate3d(0," + y.toFixed(1) + "px,0)";
       el.classList.toggle("is-active", a > 0.5);
@@ -165,6 +206,8 @@
     });
     var cur = p.chapter;
     if (!cur) { for (var k = st.passage; k >= 0; k--) if (passages[k].chapter) { cur = passages[k].chapter; break; } }
+    if (cur === railChapter) return;
+    railChapter = cur;
     var ci = CHAPTER_ORDER.indexOf(cur);
     railItems.forEach(function (li, idx) {
       li.classList.toggle("is-current", idx === ci);
@@ -173,124 +216,48 @@
     });
   }
 
-  // ---------- frames ----------
-  function release(e) {
-    e.img.onload = e.img.onerror = null;   // detach first: clearing src would fire onerror
-    e.img.removeAttribute("src");
+  // ---------- buffered film & scroll loop ----------
+  video.addEventListener("seeked", function () {
+    if (!videoReady || !isRunning()) return;
+    seekBusy = false;
+    lastDrawn = seekFrame;
+    var elapsed = performance.now() - seekStart;
+    seeks++; totalSeekMs += elapsed; maxSeekMs = Math.max(maxSeekMs, elapsed);
+    // Let the browser present this frame before asking for the newest target.
+    schedule();
+  });
+
+  function draw(frame) {
+    desiredFrame = frame;
+    if (!videoReady || seekBusy || video.seeking || lastDrawn === frame) return;
+    var time = Math.min((frame + 0.25) / fps, Math.max(0, video.duration - 0.001));
+    if (Math.abs(video.currentTime - time) < 0.002) { lastDrawn = frame; return; }
+    seekFrame = frame; seekStart = performance.now(); seekBusy = true;
+    video.currentTime = time;
   }
 
-  function want(list) {
-    wanted = new Set();
-    var q = [];
-    for (var k = 0; k < list.length; k++) {
-      var i = list[k];
-      if (i < 0 || i >= count || wanted.has(i)) continue;
-      wanted.add(i);
-      if (!cache.has(i)) q.push(i);
+  function schedule() {
+    if (isRunning() && !rafPending && !document.hidden) {
+      rafPending = true; requestAnimationFrame(tick);
     }
-    queue = q;
-    pump();
   }
 
-  function pump() {
-    if (!isRunning()) return;
-    while (inflight < MAX_INFLIGHT && queue.length) {
-      var i = queue.shift();
-      if (!cache.has(i)) load(i);
-    }
-  }
-
-  function load(i) {
-    var img = new Image();
-    img.decoding = "async";
-    var entry = { img: img, ready: false, settled: false }, g = gen;
-    cache.set(i, entry);
-    inflight++;
-    function settle(ok) {
-      if (entry.settled) return;
-      entry.settled = true;
-      if (g !== gen) return;               // the frame set changed while this was loading
-      inflight = Math.max(0, inflight - 1);
-      if (cache.get(i) !== entry) { pump(); return; } // replaced or evicted meanwhile
-      if (ok) { entry.ready = true; onFrameReady(i); } else { cache.delete(i); if (!live && i === current.frame) { fail("image"); return; } }
-      evict();
-      pump();
-    }
-    img.onload = function () { if (img.decode) img.decode().then(function () { settle(true); }, function () { settle(true); }); else settle(true); };
-    img.onerror = function () { settle(false); };
-    img.src = frameURL(i);
-  }
-
-  function evict() {
-    var ready = [];
-    cache.forEach(function (e, i) { if (e.ready) ready.push(i); });
-    var over = ready.length - CAP;
-    if (over <= 0) return;
-    var cur = current.frame;
-    var drop = ready.filter(function (i) { return !wanted.has(i); });   // never drop what the current window needs
-    drop.sort(function (a, b) { return Math.abs(b - cur) - Math.abs(a - cur); });
-    for (var k = 0; k < drop.length && k < over; k++) { release(cache.get(drop[k])); cache.delete(drop[k]); }
-  }
-
-  function onFrameReady(i) {
-    readyCount++;
-    if (loaderEl && !loaderEl.classList.contains("is-done")) {
-      var need = Math.max(1, Math.min(20, count, wanted.size));
-      var pct = Math.min(100, Math.round(readyCount / need * 100));
-      loaderBar.style.setProperty("--p", pct + "%");
-      if (pct >= 100) {
-        loaderEl.classList.add("is-done");
-        loaderEl.setAttribute("aria-hidden", "true");
-        var t = loaderEl.querySelector("span"); if (t) t.textContent = "Tour ready";
-      }
-    }
-    if (Math.abs(i - current.frame) <= 2) schedule();
-  }
-
-  function nearestReady(f) {
-    var c = cache.get(f);
-    if (c && c.ready) return f;
-    for (var d = 1; d < 90; d++) {
-      var a = cache.get(f - d * lastDir); if (a && a.ready) return f - d * lastDir;
-      var b = cache.get(f + d * lastDir); if (b && b.ready) return f + d * lastDir;
-    }
-    return -1;
-  }
-
-  function draw(f) {
-    var idx = nearestReady(f);
-    if (idx < 0 || idx === lastDrawn) return;
-    var img = cache.get(idx).img;
-    var cw = canvas.width, ch = canvas.height;
-    var iw = img.naturalWidth || frameW, ih = img.naturalHeight || frameH;
-    var s = Math.max(cw / iw, ch / ih);
-    var dw = iw * s, dh = ih * s;
-    var p = passages[current.passage];
-    var fx = (isMobile && p && typeof p.fx === "number") ? p.fx : 0.5;
-    ctx.drawImage(img, (cw - dw) * fx, (ch - dh) / 2, dw, dh);
-    lastDrawn = idx;
-    if (!live) { live = true; canvas.classList.add("is-live"); root.classList.add("flight-ready"); }
-  }
-
-  // ---------- loop ----------
-  function schedule() { if (isRunning() && !rafPending) { rafPending = true; requestAnimationFrame(tick); } }
-
-  function tick() {
+  function tick(now) {
     rafPending = false;
-    if (!isRunning()) return;
+    if (!isRunning() || document.hidden) return;
     var rect = tour.getBoundingClientRect();
-    var y = clamp(-rect.top, 0, totalPx);
-    if (y !== lastY) lastDir = y > lastY ? 1 : -1;
-    lastY = y;
-    current = locate(y);
-    var list = [current.frame];
-    for (var d = 1; d <= AHEAD; d++) { list.push(current.frame + d * lastDir); if (d <= BEHIND) list.push(current.frame - d * lastDir); }
-    want(list);
-    evict();
-    draw(current.frame);
+    var targetY = clamp(-rect.top, 0, totalPx);
+    var dt = tickTime ? Math.min(64, now - tickTime) : 16;
+    tickTime = now;
+    if (visualY === null || rect.top > vh || rect.bottom < 0) visualY = targetY;
+    else visualY += (targetY - visualY) * (1 - Math.exp(-dt / 65));
+    if (Math.abs(targetY - visualY) < 0.5) visualY = targetY;
+    current = locate(visualY);
+    if (rect.top < vh && rect.bottom > 0) draw(current.frame);
     updateText(current);
     if (header) header.classList.toggle("is-over-film", rect.bottom > 80);
     if (DEBUG) hud();
+    if (visualY !== targetY) schedule();
   }
 
   // ---------- rail & focus ----------
@@ -318,17 +285,23 @@
 
   // ---------- debug ----------
   var hudEl;
+  function state() {
+    return { passage: passages[current.passage].id, local: current.local,
+      frame: current.frame, drawn: lastDrawn, target: desiredFrame,
+      engine: "buffered-video", ready: videoReady, seeking: seekBusy,
+      seeks: seeks, averageSeekMs: seeks ? +(totalSeekMs / seeks).toFixed(1) : 0,
+      maxSeekMs: +maxSeekMs.toFixed(1), downloadedBytes: downloadedBytes,
+      set: isMobile ? "mobile" : "desktop", count: count, totalPx: totalPx, vh: vh };
+  }
   function hud() {
     if (!hudEl) { hudEl = document.createElement("div"); hudEl.className = "debug-hud"; document.body.appendChild(hudEl); }
-    var p = passages[current.passage], ready = 0;
-    cache.forEach(function (c) { if (c.ready) ready++; });
-    hudEl.textContent = "passage " + p.id + "  local " + current.local.toFixed(3) +
-      "\nframe " + current.frame + " / " + (count - 1) + "  drawn " + lastDrawn +
-      "\ncache " + ready + " ready / " + cache.size + "  cap " + CAP + "  queue " + queue.length + "  inflight " + inflight +
-      "\nset " + (isMobile ? "mobile" : "desktop") + "  vh " + vh + "  total " + totalPx + "px";
+    var s = state();
+    hudEl.textContent = "buffered video · " + s.set + " · " + (videoReady ? "ready" : "loading") +
+      "\nframe " + s.frame + " / " + (count - 1) + " · drawn " + s.drawn +
+      "\nseeks " + seeks + " · average " + s.averageSeekMs + " ms · max " + s.maxSeekMs + " ms";
   }
   window.__tour = {
-    state: function () { var r = 0; cache.forEach(function (c) { if (c.ready) r++; }); return { passage: passages[current.passage].id, local: current.local, frame: current.frame, drawn: lastDrawn, cache: cache.size, ready: r, cap: CAP, inflight: inflight, set: isMobile ? "mobile" : "desktop", count: count, totalPx: totalPx, vh: vh }; },
+    state: state,
     passages: function () { return passages.map(function (p) { return { id: p.id, start: p.start, len: p.len, chapter: p.chapter, f0: p.f0, f1: p.f1 }; }); },
     goTo: function (id, local) { var p = passages.filter(function (q) { return q.id === id; })[0]; if (p) scrollToLocal(p, local == null ? 0.5 : local); },
     goToChapter: scrollToChapter,
@@ -340,8 +313,13 @@
     if (stopped) return;
     stopped = true;
     gen++;
-    queue = []; wanted.clear();
-    cache.forEach(release); cache.clear(); inflight = 0;
+    if (controller) controller.abort();
+    clearTimeout(loadTimer);
+    videoReady = false; video.pause();
+    video.removeAttribute("src"); video.load();
+    if (sourceURL) { URL.revokeObjectURL(sourceURL); sourceURL = null; }
+    video.classList.remove("is-live");
+    root.classList.remove("flight-loading");
     window.removeEventListener("scroll", schedule);
     var hero = tour.querySelector('[data-chapter="hero"]');
     var restoreFocus = tour.contains(document.activeElement) && hero && !hero.contains(document.activeElement);
@@ -365,7 +343,8 @@
   }
 
   document.addEventListener("gfd:static", function () { fail(root.dataset.staticReason || "unavailable"); });
-  if (!ctx) { fail("canvas"); return; }
+  if (!video.canPlayType("video/mp4") || !window.AbortController) { fail("video-support"); return; }
+  document.addEventListener("visibilitychange", function () { tickTime = 0; schedule(); });
 
   Promise.all([
     fetch("content/flight.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw 0; return r.json(); }),
@@ -387,9 +366,8 @@
       var keep = { i: current.passage, local: current.local, bottom: rect.bottom };
       chooseSet();
       var changed = measure(false);
-      if (!changed) sizeCanvas();
-      else if (inside) scrollToLocal(passages[keep.i], keep.local);
-      else if (past) window.scrollBy(0, tour.getBoundingClientRect().bottom - keep.bottom);
+      if (changed && inside) scrollToLocal(passages[keep.i], keep.local);
+      else if (changed && past) window.scrollBy(0, tour.getBoundingClientRect().bottom - keep.bottom);
       schedule();
     });
     schedule();

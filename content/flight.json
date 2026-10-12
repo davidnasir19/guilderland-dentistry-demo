@@ -207,5 +207,17 @@
       "chapter": "visit"
     }
   ],
-  "_pacing": "Redesign 2026-10-11: reduced to 890vh with native scrolling, retained source frame order and seamless transitions. Desktop and existing mobile sequences reused."
+  "_pacing": "Redesign 2026-10-11: reduced to 890vh with native scrolling, retained source frame order and seamless transitions. Desktop and existing mobile sequences reused.",
+  "media": {
+    "desktop": {
+      "src": "assets/video/tour-desktop-v1.mp4",
+      "width": 960,
+      "height": 540
+    },
+    "mobile": {
+      "src": "assets/video/tour-mobile-v1.mp4",
+      "width": 480,
+      "height": 480
+    }
+  }
 }

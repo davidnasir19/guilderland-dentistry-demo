@@ -32,4 +32,8 @@ for variant in ("frames", "frames-m"):
     for index in range(manifest["count"]):
         assert (OUT / "assets" / variant / f"frame-{index:04d}.webp").is_file()
 
+timeline = json.loads((OUT / "content/flight.json").read_text())
+for variant in timeline.get("media", {}).values():
+    assert (OUT / variant["src"]).is_file()
+
 print(f"Ready: {len(list(OUT.rglob('*')))} entries, both 921-frame sequences verified.")

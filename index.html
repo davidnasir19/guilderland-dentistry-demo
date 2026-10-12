@@ -38,7 +38,7 @@
     if (why) r.dataset.staticReason = why;
     // If the tour engine has not started within 10 s (blocked or failed script), fall back to stills.
     else setTimeout(function () {
-      if (r.classList.contains("flight-ready") || !r.classList.contains("has-flight")) return;
+      if (r.classList.contains("flight-ready") || r.classList.contains("flight-loading") || !r.classList.contains("has-flight")) return;
       r.classList.remove("has-flight"); r.classList.add("is-static"); r.dataset.staticReason = "timeout";
       d.dispatchEvent(new Event("gfd:static"));
     }, 10000);
@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="assets/css/site.css?v=20261011v3">
+<link rel="stylesheet" href="assets/css/site.css?v=20261012perf1">
 <noscript><style>
   .menu-btn,.static-note,.map-load,.remodel-tabs,.compare input,.compare-handle{display:none!important}
   .remodel-section .section-head>p{display:none}
@@ -148,5 +148,5 @@
 </main>
 <footer class="site-footer"><div class="wrap"><div class="footer-grid"><div class="footer-brand"><img src="assets/brand/logo-reversed-white.png" alt="Guilderland Family Dentistry" width="1020" height="422" loading="lazy"><p>Thoughtful dentistry.<br>A familiar welcome.</p></div><div><h2>Come visit</h2><address>3734 Carman Road<br>Schenectady, NY 12303</address><p>Mon–Thu · 8 AM–5 PM</p><a href="tel:+15183560077">518–356–0077</a><small>Fax 518–356–0067</small></div><div><h2>Find your way</h2><a href="#dr-park">Our practice</a><a href="#services">Dental care</a><a href="#remodel">Our space</a><a href="#first-visit">Your first visit</a></div><div><h2>Stay connected</h2><a href="https://www.facebook.com/YourGuilderlandNYDentist" target="_blank" rel="noopener">Facebook ↗</a><a href="#reviews">Patient reviews</a><a href="#forms">Patient forms</a><a href="#tour">Back to top ↑</a></div></div><div class="footer-bottom"><span>Guilderland Family Dentistry</span><span>Independent redesign concept · Not the official website</span></div><details class="concept-details"><summary>About the imagery &amp; this preview</summary><p>The tour, mood films and still-life illustrations are AI-generated concepts based on the practice and its surroundings. The aerial views are illustrative. The photographs of Dr. Park and the before-and-after renovation are the practice's own. Patient quotations are from the original site's cited reviews. This portfolio demonstration is independent and is not affiliated with the practice. It does not collect appointment requests; booking links call the practice.</p></details></div></footer>
 <div class="callbar"><a href="tel:+15183560077"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-phone"/></svg>Call us</a><a class="btn" href="#appointment">Book a visit <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a></div>
-<script src="assets/js/flight.js?v=20261011v3" defer></script><script src="assets/js/site.js?v=20261011v3" defer></script>
+<script src="assets/js/flight.js?v=20261012perf1" defer></script><script src="assets/js/site.js?v=20261012perf1" defer></script>
 </body></html>

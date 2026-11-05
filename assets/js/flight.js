@@ -263,7 +263,7 @@
     var dt = tickTime ? Math.min(64, now - tickTime) : 16;
     tickTime = now;
     if (visualY === null || rect.top > vh || rect.bottom < 0) visualY = targetY;
-    else if (isMobile) visualY = targetY;
+    else if (isMobile) visualY += (targetY - visualY) * (1 - Math.exp(-dt / 45));
     else visualY += (targetY - visualY) * (1 - Math.exp(-dt / 65));
     if (Math.abs(targetY - visualY) < 0.5) visualY = targetY;
     current = locate(visualY);

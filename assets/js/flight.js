@@ -51,7 +51,7 @@
   var textState = [], railChapter = null;
   var sourceURL = null, controller = null, loadTimer = null;
   var videoReady = false, seekBusy = false, desiredFrame = 0, seekFrame = 0;
-  var visualY = null, tickTime = 0, seekStart = 0;
+  var visualY = null, tickTime = 0, seekStart = 0, lastSeekAt = -Infinity;
   var seeks = 0, maxSeekMs = 0, totalSeekMs = 0, downloadedBytes = 0;
   var CHAPTER_ORDER = ["hero", "place", "welcome", "services", "hygiene", "visit"];
 
@@ -91,8 +91,14 @@
     controller = new AbortController();
     var signal = controller.signal;
     root.classList.add("flight-loading");
-    // A network failure leaves a usable still-image page, never a stuck loader.
-    loadTimer = setTimeout(function () { if (g === gen) fail("video-timeout"); }, 20000);
+    // Allow an active mobile transfer to finish, but never wait indefinitely.
+    var loadStarted = performance.now();
+    function armWatchdog() {
+      clearTimeout(loadTimer);
+      var remaining = Math.max(0, 60000 - (performance.now() - loadStarted));
+      loadTimer = setTimeout(function () { if (g === gen) fail("video-timeout"); }, Math.min(20000, remaining));
+    }
+    armWatchdog();
     try {
       var response = await fetch(src, { signal: signal, cache: "force-cache" });
       if (!response.ok) throw new Error("Film unavailable");
@@ -104,14 +110,14 @@
           var part = await reader.read();
           if (part.done) break;
           chunks.push(part.value); loaded += part.value.byteLength;
-          progress(loaded, total);
+          progress(loaded, total); armWatchdog();
         }
         blob = new Blob(chunks, { type: "video/mp4" });
       } else { blob = await response.blob(); progress(blob.size, blob.size); }
       if (g !== gen || !isRunning()) return;
       var oldURL = sourceURL;
       sourceURL = URL.createObjectURL(blob);
-      videoReady = false; seekBusy = false; lastDrawn = -1;
+      videoReady = false; seekBusy = false; lastDrawn = -1; lastSeekAt = -Infinity;
       video.onloadeddata = function () {
         if (g !== gen || !isRunning()) return;
         clearTimeout(loadTimer);
@@ -136,9 +142,13 @@
   // ---------- layout ----------
   function measure(force) {
     var h = window.innerHeight, w = window.innerWidth;
-    // Ignore small height changes (mobile URL bar) to keep scroll positions stable.
-    if (!force && Math.abs(h - vh) < 120 && w === measure.w) return false;
+    // Browser toolbar and keyboard height changes must never remap the tour.
+    // A width change (rotation or desktop resize) still rebuilds its layout.
+    if (!force && w === measure.w && (isMobile || Math.abs(h - vh) < 120)) return false;
     measure.w = w; vh = h;
+    stage.style.setProperty("--stage-h", h + "px");
+    root.classList.toggle("tour-compact", h <= 740);
+    root.classList.toggle("tour-short", h <= 600);
     totalPx = 0;
     passages.forEach(function (p) { p.start = totalPx; p.len = Math.round(p.vh / 100 * vh); totalPx += p.len; });
     tour.style.setProperty("--tour-h", (totalPx + vh) + "px");
@@ -230,9 +240,12 @@
   function draw(frame) {
     desiredFrame = frame;
     if (!videoReady || seekBusy || video.seeking || lastDrawn === frame) return;
+    // Give mobile decoders a presentation interval instead of seeking at 60/120 Hz.
+    var now = performance.now();
+    if (isMobile && now - lastSeekAt < 1000 / 30) { schedule(); return; }
     var time = Math.min((frame + 0.25) / fps, Math.max(0, video.duration - 0.001));
     if (Math.abs(video.currentTime - time) < 0.002) { lastDrawn = frame; return; }
-    seekFrame = frame; seekStart = performance.now(); seekBusy = true;
+    seekFrame = frame; seekStart = now; lastSeekAt = now; seekBusy = true;
     video.currentTime = time;
   }
 
@@ -250,7 +263,7 @@
     var dt = tickTime ? Math.min(64, now - tickTime) : 16;
     tickTime = now;
     if (visualY === null || rect.top > vh || rect.bottom < 0) visualY = targetY;
-    else visualY += (targetY - visualY) * (1 - Math.exp(-dt / 65));
+    else visualY += (targetY - visualY) * (1 - Math.exp(-dt / (isMobile ? 110 : 65)));
     if (Math.abs(targetY - visualY) < 0.5) visualY = targetY;
     current = locate(visualY);
     if (rect.top < vh && rect.bottom > 0) draw(current.frame);
@@ -363,7 +376,8 @@
       // remember where the visitor is in the timeline: passage lengths scale with the viewport height
       var rect = tour.getBoundingClientRect();
       var inside = rect.top <= 0 && -rect.top <= totalPx, past = -rect.top > totalPx;
-      var keep = { i: current.passage, local: current.local, bottom: rect.bottom };
+      var at = locate(clamp(-rect.top, 0, totalPx));
+      var keep = { i: at.passage, local: at.local, bottom: rect.bottom };
       chooseSet();
       var changed = measure(false);
       if (changed && inside) scrollToLocal(passages[keep.i], keep.local);

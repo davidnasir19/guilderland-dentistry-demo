@@ -34,6 +34,12 @@ for variant in ("frames", "frames-m"):
 
 timeline = json.loads((OUT / "content/flight.json").read_text())
 for variant in timeline.get("media", {}).values():
+    if variant.get("parts"):
+        with (OUT / variant["src"]).open("wb") as output:
+            for part in variant["parts"]:
+                with (OUT / part).open("rb") as source:
+                    shutil.copyfileobj(source, output)
+                (OUT / part).unlink()
     assert (OUT / variant["src"]).is_file()
 
 print(f"Ready: {len(list(OUT.rglob('*')))} entries, both 921-frame sequences verified.")

@@ -32,3 +32,5 @@ Business names, logos, photographs and supplied media remain the property of the
 ## Scroll performance
 
 The tour uses a fully buffered H.264 film with a keyframe every four frames. Its camera follows native scrolling with a short 65 ms easing window. Only the newest requested seek is kept, and only one seek runs at a time. Desktop media retain the 1280×720 source resolution and mobile media use a 720×720 crop, encoded at CRF 23; scrolling makes no per-frame network requests. The legacy WebP sequences remain archived for reference. Reduced-motion and network-failure fallbacks use the still-image layout.
+
+Mobile tour (Android update): source-resolution 720×720 H.264 Baseline, CRF 18, all independent frames. Mobile seeks are capped at 30 per second with 110 ms easing; desktop retains 65 ms easing. Same-width toolbar height changes do not remap the timeline or switch animated text breakpoints. Active media downloads may run for up to 60 s, with a 20 s inactivity timeout.

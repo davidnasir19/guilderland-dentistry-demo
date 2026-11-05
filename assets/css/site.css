@@ -20,21 +20,40 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}.reveal-on .reveal{opacity:1;transform:none}}
 /* Keep the whole introduction reachable above the phone action bar. */
 @media(max-width:700px) and (max-height:740px){
-  .has-flight .stage{min-height:100svh}
-  .has-flight .chapter{padding-top:132px;padding-bottom:151px}
-  .chapter h1{font-size:clamp(36px,10.2vw,46px)}
-  .chapter h2{font-size:clamp(34px,10vw,43px)}
-  .chapter .eyebrow{margin-bottom:16px}
-  .chapter-copy>p:not(.eyebrow){font-size:14px;line-height:1.5;margin-block:18px}
-  .chapter-copy .btn{min-height:46px;padding-block:11px}
-  .chapter .btn-row{gap:13px}
-  .chapter .film-link{display:none}
+  
+  .is-static .chapter h1{font-size:clamp(36px,10.2vw,46px)}
+  .is-static .chapter h2{font-size:clamp(34px,10vw,43px)}
+  .is-static .chapter .eyebrow{margin-bottom:16px}
+  .is-static .chapter-copy>p:not(.eyebrow){font-size:14px;line-height:1.5;margin-block:18px}
+  .is-static .chapter-copy .btn{min-height:46px;padding-block:11px}
+  .is-static .chapter .btn-row{gap:13px}
+  .is-static .chapter .film-link{display:none}
 }
 @media(max-width:700px) and (max-height:600px){
-  .chapter h1{font-size:34px}
-  .chapter h2{font-size:33px}
-  .chapter-copy>p:not(.eyebrow){font-size:13px;margin-block:15px}
-  .chapter .eyebrow{font-size:7px;margin-bottom:14px}
+  .is-static .chapter h1{font-size:34px}
+  .is-static .chapter h2{font-size:33px}
+  .is-static .chapter-copy>p:not(.eyebrow){font-size:13px;margin-block:15px}
+  .is-static .chapter .eyebrow{font-size:7px;margin-bottom:14px}
+}
+
+@media(max-width:700px){
+  .has-flight .stage{height:var(--stage-h,100svh);height:100dvh;min-height:0}
+  .has-flight .chapter{height:var(--stage-h,100svh);bottom:auto}
+  .has-flight .stage>.tour-video,.has-flight .stage>picture{height:100lvh}
+  .has-flight.tour-compact .chapter{padding-top:132px;padding-bottom:151px}
+  .has-flight.tour-compact .chapter h1{font-size:clamp(36px,10.2vw,46px)}
+  .has-flight.tour-compact .chapter h2{font-size:clamp(34px,10vw,43px)}
+  .has-flight.tour-compact .chapter .eyebrow{margin-bottom:16px}
+  .has-flight.tour-compact .chapter-copy>p:not(.eyebrow){font-size:14px;line-height:1.5;margin-block:18px}
+  .has-flight.tour-compact .chapter-copy .btn{min-height:46px;padding-block:11px}
+  .has-flight.tour-compact .chapter .btn-row{gap:13px}
+  .has-flight.tour-compact .chapter .film-link{display:none}
+}
+@media(max-width:700px){
+  .has-flight.tour-short .chapter h1{font-size:34px}
+  .has-flight.tour-short .chapter h2{font-size:33px}
+  .has-flight.tour-short .chapter-copy>p:not(.eyebrow){font-size:13px;margin-block:15px}
+  .has-flight.tour-short .chapter .eyebrow{font-size:7px;margin-bottom:14px}
 }
 
 /* The paused tour film is composited at source resolution by the browser. */

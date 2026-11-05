@@ -215,9 +215,13 @@
       "height": 720
     },
     "mobile": {
-      "src": "assets/video/tour-mobile-v2.mp4",
+      "src": "assets/video/tour-mobile-v4.mp4",
       "width": 720,
-      "height": 720
+      "height": 720,
+      "parts": [
+        "assets/video/tour-mobile-v4.mp4.part00",
+        "assets/video/tour-mobile-v4.mp4.part01"
+      ]
     }
   }
 }

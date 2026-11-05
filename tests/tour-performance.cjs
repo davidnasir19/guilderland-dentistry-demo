@@ -1,0 +1,23 @@
+const {readFileSync} = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const source = readFileSync(require('node:path').join(__dirname,'../assets/js/flight.js'),'utf8');
+function body(name,next) { return source.slice(source.indexOf('  function '+name+'('),source.indexOf(next,source.indexOf('  function '+name+'('))); }
+const classes = new Set(); const styles = {};
+const c = vm.createContext({window:{innerWidth:390,innerHeight:720},isMobile:true,vh:0,totalPx:0,passages:[{vh:200},{vh:150}],stage:{style:{setProperty:(k,v)=>styles[k]=v}},tour:{style:{setProperty:(k,v)=>styles[k]=v}},root:{classList:{toggle:(k,v)=>v?classes.add(k):classes.delete(k)}}});
+vm.runInContext(body('measure','  // ---------- timeline'),c);
+assert.equal(c.measure(true),true);
+assert.equal(c.totalPx,2520); assert.ok(classes.has('tour-compact'));
+c.window.innerHeight=880;
+assert.equal(c.measure(false),false); assert.equal(c.vh,720); assert.equal(c.totalPx,2520); assert.equal(styles['--stage-h'],'720px'); assert.ok(classes.has('tour-compact'));
+c.window.innerWidth=720; c.window.innerHeight=390;
+assert.equal(c.measure(false),true); assert.equal(c.vh,390); assert.equal(c.totalPx,1365);
+let now=0,scheduled=0;
+Object.assign(c,{videoReady:true,seekBusy:false,lastDrawn:-1,lastSeekAt:-Infinity,fps:20,video:{seeking:false,currentTime:0,duration:46},performance:{now:()=>now},schedule:()=>scheduled++});
+vm.runInContext(body('draw','  function schedule('),c);
+c.draw(10); assert.equal(c.seekFrame,10); assert.equal(c.seekBusy,true);
+now=10;c.draw(100);assert.equal(c.seekFrame,10);assert.equal(c.desiredFrame,100);
+c.seekBusy=false;now=20;c.draw(100);assert.equal(c.seekFrame,10);assert.equal(scheduled,1);
+now=34;c.draw(100);assert.equal(c.seekFrame,100);
+c.seekBusy=false;c.lastDrawn=100;now=100;c.draw(100);assert.equal(c.lastSeekAt,34);
+console.log('PASS: toolbar height stability, rotation, coalesced seeks, mobile rate limit, idle target');
